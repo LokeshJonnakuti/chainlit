@@ -17,7 +17,7 @@ class OAuthProvider:
     authorize_params: Dict[str, str]
 
     def is_configured(self):
-        return all([os.environ.get(env) for env in self.env])
+        return all(os.environ.get(env) for env in self.env)
 
     async def get_token(self, code: str, url: str) -> str:
         raise NotImplementedError()

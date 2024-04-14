@@ -70,14 +70,11 @@ class FinalStreamHelper:
             # Some LLMs will consider all the tokens of the final answer as one token
             # so we check if any last token contains all answer tokens
             return any(
-                [
-                    all(
+                all(
                         answer_token in last_token
                         for answer_token in self.answer_prefix_tokens_stripped
                     )
-                    for last_token in last_tokens
-                ]
-            )
+                    for last_token in last_tokens)
 
     def _append_to_last_tokens(self, token: str) -> None:
         self.last_tokens.append(token)
