@@ -1,4 +1,4 @@
-import isEqual from 'lodash/isEqual';
+import { isEqual } from 'lodash';
 import { DefaultValue, atom, selector } from 'recoil';
 import { Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
@@ -7,6 +7,7 @@ import {
   IAction,
   IAsk,
   IAvatarElement,
+  ICallFn,
   IMessageElement,
   IStep,
   ITasklistElement,
@@ -71,6 +72,11 @@ export const loadingState = atom<boolean>({
 
 export const askUserState = atom<IAsk | undefined>({
   key: 'AskUser',
+  default: undefined
+});
+
+export const callFnState = atom<ICallFn | undefined>({
+  key: 'CallFn',
   default: undefined
 });
 
@@ -158,4 +164,9 @@ export const threadHistoryState = atom<ThreadHistory | undefined>({
       );
     }
   ]
+});
+
+export const sideViewState = atom<IMessageElement | undefined>({
+  key: 'SideView',
+  default: undefined
 });

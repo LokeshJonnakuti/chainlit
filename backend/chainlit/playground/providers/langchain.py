@@ -1,9 +1,10 @@
-from typing import Union
+from typing import List, Union
 
+from chainlit.input_widget import InputWidget
 from chainlit.playground.provider import BaseProvider
 from chainlit.sync import make_async
-from chainlit_client import GenerationMessage
 from fastapi.responses import StreamingResponse
+from literalai import GenerationMessage
 
 
 class LangchainGenericProvider(BaseProvider):
@@ -18,13 +19,14 @@ class LangchainGenericProvider(BaseProvider):
         id: str,
         name: str,
         llm: Union[LLM, BaseChatModel],
+        inputs: List[InputWidget] = [],
         is_chat: bool = False,
     ):
         super().__init__(
             id=id,
             name=name,
             env_vars={},
-            inputs=[],
+            inputs=inputs,
             is_chat=is_chat,
         )
         self.llm = llm
@@ -37,26 +39,27 @@ class LangchainGenericProvider(BaseProvider):
             SystemMessage,
         )
 
-        content = "" if message.formatted is None else message.formatted
-        if message.role == "user":
-            return HumanMessage(content=content)
-        elif message.role == "assistant":
-            return AIMessage(content=content)
-        elif message.role == "system":
-            return SystemMessage(content=content)
-        elif message.role == "tool":
+        content = "" if message["content"] is None else message["content"]
+        if message["role"] == "user":
+            return HumanMessage(content=content)  # type: ignore
+        elif message["role"] == "assistant":
+            return AIMessage(content=content)  # type: ignore
+        elif message["role"] == "system":
+            return SystemMessage(content=content)  # type: ignore
+        elif message["role"] == "tool":
             return FunctionMessage(
-                content=content, name=message.name if message.name else "function"
+                content=content,  # type: ignore
+                name=message["name"] if message["name"] else "function",
             )
         else:
-            raise ValueError(f"Got unknown type {message}")
+            raise ValueError(f"Got unknown type {message['role']}")
 
     def format_message(self, message, prompt):
         message = super().format_message(message, prompt)
         return self.prompt_message_to_langchain_message(message)
 
     def message_to_string(self, message: BaseMessage) -> str:  # type: ignore[override]
-        return str(message.content)
+        return str(getattr(message, "content", ""))
 
     async def create_completion(self, request):
         from langchain.schema.messages import BaseMessageChunk
@@ -65,10 +68,9 @@ class LangchainGenericProvider(BaseProvider):
 
         messages = self.create_generation(request)
 
-        stream = make_async(self.llm.stream)
-
-        result = await stream(
-            input=messages,
+        # https://github.com/langchain-ai/langchain/issues/14980
+        result = await make_async(self.llm.stream)(
+            input=messages, **request.generation.settings
         )
 
         def create_event_stream():

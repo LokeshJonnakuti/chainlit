@@ -1,5 +1,5 @@
 import { useAuth } from 'api/auth';
-import { memo, useRef, useState } from 'react';
+import React, { memo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import MenuIcon from '@mui/icons-material/Menu';
@@ -14,20 +14,20 @@ import {
 } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
-import { RegularButton } from '@chainlit/react-components';
-
+import { RegularButton } from 'components/atoms/buttons';
 import GithubButton from 'components/atoms/buttons/githubButton';
 import UserButton from 'components/atoms/buttons/userButton';
 import { Logo } from 'components/atoms/logo';
+import { Translator } from 'components/i18n';
 import NewChatButton from 'components/molecules/newChatButton';
 
 import { IProjectSettings } from 'state/project';
 
-import OpenChatHistoryButton from './threadHistory/sidebar/OpenThreadListButton';
+import { OpenThreadListButton } from './threadHistory/sidebar/OpenThreadListButton';
 
 interface INavItem {
   to: string;
-  label: string;
+  label: React.ReactElement | string;
 }
 
 function ActiveNavItem({ to, label }: INavItem) {
@@ -75,10 +75,15 @@ const Nav = ({ dataPersistence, hasReadme, matches }: NavProps) => {
     anchorEl = ref.current;
   }
 
-  const tabs = [{ to: '/', label: 'Chat' }];
+  const tabs = [
+    { to: '/', label: <Translator path="components.organisms.header.chat" /> }
+  ];
 
   if (hasReadme) {
-    tabs.push({ to: '/readme', label: 'Readme' });
+    tabs.push({
+      to: '/readme',
+      label: <Translator path="components.organisms.header.readme" />
+    });
   }
 
   const nav = (
@@ -105,9 +110,7 @@ const Nav = ({ dataPersistence, hasReadme, matches }: NavProps) => {
         >
           <MenuIcon />
         </IconButton>
-        {isAuthenticated && dataPersistence ? (
-          <OpenChatHistoryButton mode="mobile" />
-        ) : null}
+        {isAuthenticated && dataPersistence ? <OpenThreadListButton /> : null}
         <Menu
           autoFocus
           anchorEl={anchorEl}
@@ -156,7 +159,7 @@ const Header = memo(
             borderBottomColor: (theme) => theme.palette.divider
           }}
         >
-          <Stack alignItems="center" direction={'row'} gap={!matches ? 3 : 1}>
+          <Stack alignItems="center" direction={'row'} gap={!matches ? 3 : 0}>
             {!matches ? <Logo style={{ maxHeight: '25px' }} /> : null}
             <Nav
               matches={matches}

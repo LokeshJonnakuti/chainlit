@@ -43,6 +43,7 @@ type Payload = FormData | any;
 export class APIBase {
   constructor(
     public httpEndpoint: string,
+    public type: 'app' | 'copilot' | 'teams' | 'slack',
     public on401?: () => void,
     public onError?: (error: ClientError) => void
   ) {}
@@ -148,6 +149,11 @@ export class ChainlitAPI extends APIBase {
     return res.json();
   }
 
+  async logout() {
+    const res = await this.post(`/logout`, {});
+    return res.json();
+  }
+
   async getGeneration(
     generation: IGeneration,
     userEnv = {},
@@ -204,6 +210,14 @@ export class ChainlitAPI extends APIBase {
     accessToken?: string
   ): Promise<{ success: boolean; feedbackId: string }> {
     const res = await this.put(`/feedback`, { feedback }, accessToken);
+    return res.json();
+  }
+
+  async deleteFeedback(
+    feedbackId: string,
+    accessToken?: string
+  ): Promise<{ success: boolean }> {
+    const res = await this.delete(`/feedback`, { feedbackId }, accessToken);
     return res.json();
   }
 
@@ -279,14 +293,8 @@ export class ChainlitAPI extends APIBase {
     return { xhr, promise };
   }
 
-  getElementUrl(id: string, sessionId: string, accessToken?: string) {
-    let queryParams = `?session_id=${sessionId}`;
-    if (accessToken) {
-      if (accessToken.startsWith('Bearer ')) {
-        accessToken = accessToken.slice(7);
-      }
-      queryParams += `&token=${accessToken}`;
-    }
+  getElementUrl(id: string, sessionId: string) {
+    const queryParams = `?session_id=${sessionId}`;
     return this.buildEndpoint(`/project/file/${id}${queryParams}`);
   }
 

@@ -2,6 +2,7 @@ import capitalize from 'lodash/capitalize';
 import map from 'lodash/map';
 import size from 'lodash/size';
 import { Link, useNavigate } from 'react-router-dom';
+import { grey } from 'theme';
 
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
 import Alert from '@mui/material/Alert';
@@ -18,7 +19,8 @@ import {
   useChatInteract,
   useChatSession
 } from '@chainlit/react-client';
-import { grey } from '@chainlit/react-components';
+
+import { Translator } from 'components/i18n';
 
 import { DeleteThreadButton } from './DeleteThreadButton';
 
@@ -41,25 +43,29 @@ const ThreadList = ({
   const { clear } = useChatInteract();
   const navigate = useNavigate();
   if (isFetching || (!threadHistory?.timeGroupedThreads && isLoadingMore)) {
-    return [1, 2, 3].map((index) => (
-      <Box key={`threads-skeleton-${index}`} sx={{ px: 1.5, mt: 2 }}>
-        <Skeleton width={100} />
-        {[1, 2].map((childIndex) => (
-          <Stack
-            key={`threads-skeleton-${index}-${childIndex}`}
-            sx={{
-              py: 2,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 1.5
-            }}
-          >
-            <Skeleton width={30} />
-            <Skeleton width={'100%'} />
-          </Stack>
+    return (
+      <>
+        {[1, 2, 3].map((index) => (
+          <Box key={`threads-skeleton-${index}`} sx={{ px: 1.5, mt: 2 }}>
+            <Skeleton width={100} />
+            {[1, 2].map((childIndex) => (
+              <Stack
+                key={`threads-skeleton-${index}-${childIndex}`}
+                sx={{
+                  py: 2,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 1.5
+                }}
+              >
+                <Skeleton width={30} />
+                <Skeleton width={'100%'} />
+              </Stack>
+            ))}
+          </Box>
         ))}
-      </Box>
-    ));
+      </>
+    );
   }
 
   if (error) {
@@ -77,7 +83,7 @@ const ThreadList = ({
   if (size(threadHistory?.timeGroupedThreads) === 0) {
     return (
       <Alert variant="standard" sx={{ mx: 1.5 }} severity="info">
-        Empty...
+        <Translator path="components.organisms.threadHistory.sidebar.ThreadList.empty" />
       </Alert>
     );
   }
@@ -117,7 +123,27 @@ const ThreadList = ({
                       backgroundColor: (theme) => theme.palette.background.paper
                     }}
                   >
-                    {index}
+                    {(() => {
+                      if (index === 'Today') {
+                        return (
+                          <Translator path="components.organisms.threadHistory.sidebar.ThreadList.today" />
+                        );
+                      } else if (index === 'Yesterday') {
+                        return (
+                          <Translator path="components.organisms.threadHistory.sidebar.ThreadList.yesterday" />
+                        );
+                      } else if (index === 'Previous 7 days') {
+                        return (
+                          <Translator path="components.organisms.threadHistory.sidebar.ThreadList.previous7days" />
+                        );
+                      } else if (index === 'Previous 30 days') {
+                        return (
+                          <Translator path="components.organisms.threadHistory.sidebar.ThreadList.previous30days" />
+                        );
+                      } else {
+                        return <>{index}</>;
+                      }
+                    })()}
                   </Typography>
                 </ListSubheader>
                 {map(items, (thread) => {
@@ -184,7 +210,7 @@ const ThreadList = ({
                               textOverflow: 'ellipsis'
                             }}
                           >
-                            {capitalize(thread.metadata?.name || 'Unknown')}
+                            {capitalize(thread.name || 'Unknown')}
                           </Typography>
                         </Stack>
                         {isSelected ? (

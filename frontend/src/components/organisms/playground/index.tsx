@@ -1,16 +1,15 @@
-import { apiClient } from 'api';
 import { useCallback } from 'react';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import { toast } from 'sonner';
+import { IPlaygroundContext } from 'types';
 
 import { IGeneration, accessTokenState } from '@chainlit/react-client';
-import {
-  IPlaygroundContext,
-  PromptPlayground
-} from '@chainlit/react-components';
+
+import { PromptPlayground } from 'components/molecules/playground';
 
 import { useLLMProviders } from 'hooks/useLLMProviders';
 
+import { apiClientState } from 'state/apiClient';
 import {
   functionState,
   modeState,
@@ -26,6 +25,7 @@ export default function PlaygroundWrapper() {
   const [functionIndex, setFunctionIndex] = useRecoilState(functionState);
   const [playground, setPlayground] = useRecoilState(playgroundState);
   const [promptMode, setPromptMode] = useRecoilState(modeState);
+  const apiClient = useRecoilValue(apiClientState);
 
   const shoulFetchProviders =
     playground?.generation && !playground?.providers?.length;

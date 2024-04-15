@@ -1,4 +1,4 @@
-from datetime import datetime
+import re
 from typing import Any, Generic, List, Optional, TypeVar
 
 from chainlit.context import context
@@ -6,6 +6,9 @@ from chainlit.step import Step
 from chainlit.sync import run_sync
 from haystack.agents import Agent, Tool
 from haystack.agents.agent_step import AgentStep
+from literalai.helper import utc_now
+
+from chainlit import Message
 
 T = TypeVar("T")
 
@@ -34,7 +37,12 @@ class HaystackAgentCallbackHandler:
     stack: Stack[Step]
     last_step: Optional[Step]
 
-    def __init__(self, agent: Agent):
+    def __init__(
+        self,
+        agent: Agent,
+        stream_final_answer: bool = False,
+        stream_final_answer_agent_name: str = "Agent",
+    ):
         agent.callback_manager.on_agent_start += self.on_agent_start
         agent.callback_manager.on_agent_step += self.on_agent_step
         agent.callback_manager.on_agent_finish += self.on_agent_finish
@@ -44,14 +52,26 @@ class HaystackAgentCallbackHandler:
         agent.tm.callback_manager.on_tool_finish += self.on_tool_finish
         agent.tm.callback_manager.on_tool_error += self.on_tool_error
 
+        self.final_answer_pattern = agent.final_answer_pattern
+        self.stream_final_answer = stream_final_answer
+        self.stream_final_answer_agent_name = stream_final_answer_agent_name
+
     def on_agent_start(self, **kwargs: Any) -> None:
         # Prepare agent step message for streaming
         self.agent_name = kwargs.get("name", "Agent")
         self.stack = Stack[Step]()
+
+        if self.stream_final_answer:
+            self.final_stream = Message(
+                author=self.stream_final_answer_agent_name, content=""
+            )
+            self.last_tokens: List[str] = []
+            self.answer_reached = False
+
         root_message = context.session.root_message
         parent_id = root_message.id if root_message else None
         run_step = Step(name=self.agent_name, type="run", parent_id=parent_id)
-        run_step.start = datetime.utcnow().isoformat()
+        run_step.start = utc_now()
         run_step.input = kwargs
 
         run_sync(run_step.send())
@@ -59,10 +79,11 @@ class HaystackAgentCallbackHandler:
         self.stack.push(run_step)
 
     def on_agent_finish(self, agent_step: AgentStep, **kwargs: Any) -> None:
-        run_step = self.stack.pop()
-        run_step.end = datetime.utcnow().isoformat()
-        run_step.output = agent_step.prompt_node_response
-        run_sync(run_step.update())
+        if self.last_step:
+            run_step = self.last_step
+            run_step.end = utc_now()
+            run_step.output = agent_step.prompt_node_response
+            run_sync(run_step.update())
 
     # This method is called when a step has finished
     def on_agent_step(self, agent_step: AgentStep, **kwargs: Any) -> None:
@@ -72,16 +93,33 @@ class HaystackAgentCallbackHandler:
         # If token streaming is disabled
         if self.last_step.output == "":
             self.last_step.output = agent_step.prompt_node_response
-        self.last_step.end = datetime.utcnow().isoformat()
+        self.last_step.end = utc_now()
         run_sync(self.last_step.update())
 
         if not agent_step.is_last():
             # Prepare step for next agent step
-            step = Step(name=self.agent_name, parent_id=self.stack.peek().id)
+            step = Step(name=self.agent_name, parent_id=self.last_step.id)
             self.stack.push(step)
 
     def on_new_token(self, token, **kwargs: Any) -> None:
         # Stream agent step tokens
+        if self.stream_final_answer:
+            if self.answer_reached:
+                run_sync(self.final_stream.stream_token(token))
+            else:
+                self.last_tokens.append(token)
+
+                last_tokens_concat = "".join(self.last_tokens)
+                final_answer_match = re.search(
+                    self.final_answer_pattern, last_tokens_concat
+                )
+
+                if final_answer_match:
+                    self.answer_reached = True
+                    run_sync(
+                        self.final_stream.stream_token(final_answer_match.group(1))
+                    )
+
         run_sync(self.stack.peek().stream_token(token))
 
     def on_tool_start(self, tool_input: str, tool: Tool, **kwargs: Any) -> None:
@@ -89,7 +127,7 @@ class HaystackAgentCallbackHandler:
         parent_id = self.stack.items[0].id if self.stack.items[0] else None
         tool_step = Step(name=tool.name, type="tool", parent_id=parent_id)
         tool_step.input = tool_input
-        tool_step.start = datetime.utcnow().isoformat()
+        tool_step.start = utc_now()
         self.stack.push(tool_step)
 
     def on_tool_finish(
@@ -102,7 +140,7 @@ class HaystackAgentCallbackHandler:
         # Tool finished, send step with tool_result
         tool_step = self.stack.pop()
         tool_step.output = tool_result
-        tool_step.end = datetime.utcnow().isoformat()
+        tool_step.end = utc_now()
         run_sync(tool_step.update())
 
     def on_tool_error(self, exception: Exception, tool: Tool, **kwargs: Any) -> None:
@@ -110,5 +148,5 @@ class HaystackAgentCallbackHandler:
         error_step = self.stack.pop()
         error_step.is_error = True
         error_step.output = str(exception)
-        error_step.end = datetime.utcnow().isoformat()
+        error_step.end = utc_now()
         run_sync(error_step.update())
