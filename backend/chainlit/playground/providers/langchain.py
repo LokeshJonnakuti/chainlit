@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Optional, List, Union
 
 from chainlit.input_widget import InputWidget
 from chainlit.playground.provider import BaseProvider
@@ -19,9 +19,10 @@ class LangchainGenericProvider(BaseProvider):
         id: str,
         name: str,
         llm: Union[LLM, BaseChatModel],
-        inputs: List[InputWidget] = [],
+        inputs: Optional[List[InputWidget]] = None,
         is_chat: bool = False,
     ):
+        inputs = [] if inputs is None else inputs
         super().__init__(
             id=id,
             name=name,
